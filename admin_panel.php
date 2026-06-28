@@ -1,10 +1,4 @@
-<?php
-// ============================================================
-// admin_panel.php - Yönetim Paneli
-// Tüm üyeler ve tüm performans kayıtları görüntülenir.
-// ============================================================
-
-// Geri tuşuyla erişimi engelle
+﻿<?php
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
 header('Expires: Sat, 01 Jan 2000 00:00:00 GMT');
@@ -12,12 +6,10 @@ header('Expires: Sat, 01 Jan 2000 00:00:00 GMT');
 require_once 'includes/auth.php';
 require_once 'config.php';
 
-// Sadece admin erişebilir
 adminGerekli();
 
 $pdo = baglan();
 
-// Kategori adını CSS class'a çevir
 function kategoriClass($kat) {
     $map = [
         'Antrenman'  => 'antrenman',
@@ -28,17 +20,14 @@ function kategoriClass($kat) {
     return $map[$kat] ?? 'diger';
 }
 
-// ---- İSTATİSTİKLER ----
 $toplam_kullanici = $pdo->query('SELECT COUNT(*) FROM users')->fetchColumn();
 $admin_sayisi     = $pdo->query("SELECT COUNT(*) FROM users WHERE rol = 'admin'")->fetchColumn();
 $uye_sayisi       = $pdo->query("SELECT COUNT(*) FROM users WHERE rol = 'user'")->fetchColumn();
 $toplam_puan      = $pdo->query('SELECT COUNT(*) FROM puanlar')->fetchColumn();
 
-// Genel ortalama puan
 $ort_sorgu = $pdo->query('SELECT ROUND(AVG(puan), 1) FROM puanlar')->fetchColumn();
 $genel_ortalama = $ort_sorgu ?? '—';
 
-// Kategori bazlı analiz (GROUP BY) — en düşük ortalamayı bulmak için
 $kategori_analiz = $pdo->query(
     'SELECT kategori,
             COUNT(*) as adet,
@@ -48,7 +37,6 @@ $kategori_analiz = $pdo->query(
      FROM puanlar GROUP BY kategori ORDER BY ort DESC'
 )->fetchAll();
 
-// En zayıf kategori (genel sistem analizi)
 $en_zayif_kat   = null;
 $en_zayif_ort   = 101;
 foreach ($kategori_analiz as $ka) {
@@ -58,7 +46,6 @@ foreach ($kategori_analiz as $ka) {
     }
 }
 
-// Zayıf alan analiz mesajı
 $zayif_mesaj = '';
 if ($en_zayif_kat) {
     $ort = (float)$en_zayif_kat['ort'];
@@ -71,13 +58,11 @@ if ($en_zayif_kat) {
     }
 }
 
-// ---- TÜM KULLANICILAR ----
 $uyeler = $pdo->query(
     'SELECT id, ad_soyad, kullanici_adi, email, rol, kayit_tarihi
      FROM users ORDER BY kayit_tarihi DESC'
 )->fetchAll();
 
-// ---- LİDERLİK TABLOSU: Kullanıcı başına ortalama puan ----
 $leaderboard = $pdo->query(
     'SELECT u.id, u.ad_soyad, u.kullanici_adi,
             COUNT(p.id) as kayit_sayisi,
@@ -90,7 +75,6 @@ $leaderboard = $pdo->query(
      LIMIT 10'
 )->fetchAll();
 
-// ---- TÜM PUAN KAYITLARI (kullanıcı adıyla birlikte) ----
 $puan_kayitlari = $pdo->query(
     'SELECT p.id, p.kategori, p.puan, p.aciklama, p.eklenme_tarihi,
             u.ad_soyad, u.kullanici_adi
@@ -99,7 +83,6 @@ $puan_kayitlari = $pdo->query(
      ORDER BY p.eklenme_tarihi DESC'
 )->fetchAll();
 
-// Bar grafik için veri: kategori → ortalama puan
 $bar_etiketler = array_column($kategori_analiz, 'kategori');
 $bar_veriler   = array_column($kategori_analiz, 'ort');
 
@@ -110,94 +93,99 @@ $cikis_yolu     = 'logout.php';
 require_once 'includes/header.php';
 ?>
 
-<section class="panel-sayfa">
+<section class="py-4">
     <div class="container">
 
-        <!-- Başlık -->
-        <div class="panel-baslik-bolumu">
-            <h1>⚙️ Yönetim Paneli</h1>
-            <p>Hoş geldin, <?= htmlspecialchars($_SESSION['ad_soyad']) ?>. Spor salonu üye verileri ve performans kayıtları aşağıda listeleniyor.</p>
-        </div>
+        <h1 class="mb-1">⚙️ Yönetim Paneli</h1>
+        <p class="text-muted mb-4">Hoş geldin, <?= htmlspecialchars($_SESSION['ad_soyad']) ?>. Spor salonu üye verileri ve performans kayıtları aşağıda listeleniyor.</p>
 
-        <!-- İstatistik Kartları (Renkli + İkonlu) -->
-        <div class="istatistik-grid" style="margin-bottom: 28px;">
-            <div class="istat-kart mavi">
-                <div class="istat-ikon">👥</div>
-                <div class="istat-sayi"><?= $toplam_kullanici ?></div>
-                <div class="istat-etiket">Toplam Üye</div>
-            </div>
-            <div class="istat-kart turuncu">
-                <div class="istat-ikon">⚙️</div>
-                <div class="istat-sayi"><?= $admin_sayisi ?></div>
-                <div class="istat-etiket">Yönetici Sayısı</div>
-            </div>
-            <div class="istat-kart yesil">
-                <div class="istat-ikon">🏃</div>
-                <div class="istat-sayi"><?= $uye_sayisi ?></div>
-                <div class="istat-etiket">Aktif Üye</div>
-            </div>
-            <div class="istat-kart mor">
-                <div class="istat-ikon">📊</div>
-                <div class="istat-sayi"><?= $toplam_puan ?></div>
-                <div class="istat-etiket">Toplam Değerlendirme</div>
-            </div>
-            <div class="istat-kart kirmizi">
-                <div class="istat-ikon">⭐</div>
-                <div class="istat-sayi"><?= $genel_ortalama ?></div>
-                <div class="istat-etiket">Genel Ort. Puan</div>
-            </div>
-        </div>
-
-        <!-- Bar Grafik + Zayıf Alan Analizi -->
-        <?php if (!empty($kategori_analiz)): ?>
-        <div class="panel-grid" style="margin-bottom: 28px;">
-
-            <!-- Bar Grafik -->
-            <div class="kart">
-                <div class="kart-baslik">📊 Kategori Performans Grafiği</div>
-                <p style="font-size:0.82rem; color:var(--renk-metin-soluk); margin-bottom:12px;">
-                    Tüm üyelerin kategori bazlı ortalama puanları.
-                </p>
-                <div class="chart-kapsam">
-                    <canvas id="barGrafik"></canvas>
+        <!-- İstatistik Kartları -->
+        <div class="row g-3 mb-4">
+            <div class="col-6 col-md-4 col-xl">
+                <div class="istat-kart mavi h-100">
+                    <div class="istat-ikon">👥</div>
+                    <div class="istat-sayi"><?= $toplam_kullanici ?></div>
+                    <div class="istat-etiket">Toplam Üye</div>
                 </div>
             </div>
+            <div class="col-6 col-md-4 col-xl">
+                <div class="istat-kart turuncu h-100">
+                    <div class="istat-ikon">⚙️</div>
+                    <div class="istat-sayi"><?= $admin_sayisi ?></div>
+                    <div class="istat-etiket">Yönetici Sayısı</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-4 col-xl">
+                <div class="istat-kart yesil h-100">
+                    <div class="istat-ikon">🏃</div>
+                    <div class="istat-sayi"><?= $uye_sayisi ?></div>
+                    <div class="istat-etiket">Aktif Üye</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-4 col-xl">
+                <div class="istat-kart mor h-100">
+                    <div class="istat-ikon">📊</div>
+                    <div class="istat-sayi"><?= $toplam_puan ?></div>
+                    <div class="istat-etiket">Toplam Değerlendirme</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-4 col-xl">
+                <div class="istat-kart kirmizi h-100">
+                    <div class="istat-ikon">⭐</div>
+                    <div class="istat-sayi"><?= $genel_ortalama ?></div>
+                    <div class="istat-etiket">Genel Ort. Puan</div>
+                </div>
+            </div>
+        </div>
 
-            <!-- Genel Zayıf Alan Analizi -->
-            <div class="kart">
-                <div class="kart-baslik">🔍 Genel Zayıf Alan Analizi</div>
-                <?php if ($en_zayif_kat): ?>
-                <div style="text-align:center; padding: 12px 0 20px;">
-                    <div style="font-size:0.8rem; color:var(--renk-metin-soluk); margin-bottom:8px; text-transform:uppercase; letter-spacing:1px;">En Düşük Ortalamaya Sahip Kategori</div>
-                    <span class="rozet rozet-kategori rozet-<?= kategoriClass($en_zayif_kat['kategori']) ?>" style="font-size:1rem; padding:6px 18px;">
-                        <?= htmlspecialchars($en_zayif_kat['kategori']) ?>
-                    </span>
-                    <div style="font-size:1.8rem; font-weight:900; color:var(--renk-hata); margin: 12px 0 4px;">
-                        <?= $en_zayif_kat['ort'] ?> / 100
+        <?php if (!empty($kategori_analiz)): ?>
+        <div class="row g-3 mb-4">
+            <div class="col-md-7">
+                <div class="kart h-100">
+                    <div class="kart-baslik">📊 Kategori Performans Grafiği</div>
+                    <p style="font-size:0.82rem; color:var(--renk-metin-soluk); margin-bottom:12px;">
+                        Tüm üyelerin kategori bazlı ortalama puanları.
+                    </p>
+                    <div class="chart-kapsam">
+                        <canvas id="barGrafik"></canvas>
                     </div>
-                    <div style="margin: 0 auto 16px; max-width:200px;">
-                        <div class="progress-bar-bg">
-                            <div class="progress-bar-dolgu <?= kategoriClass($en_zayif_kat['kategori']) ?>-bg"
-                                 style="width:<?= $en_zayif_kat['ort'] ?>%"></div>
+                </div>
+            </div>
+            <div class="col-md-5">
+                <div class="kart h-100">
+                    <div class="kart-baslik">🔍 Genel Zayıf Alan Analizi</div>
+                    <?php if ($en_zayif_kat): ?>
+                    <div class="text-center py-3">
+                        <div style="font-size:0.8rem; color:var(--renk-metin-soluk); margin-bottom:8px; text-transform:uppercase; letter-spacing:1px;">En Düşük Ortalamaya Sahip Kategori</div>
+                        <span class="rozet rozet-kategori rozet-<?= kategoriClass($en_zayif_kat['kategori']) ?>" style="font-size:1rem; padding:6px 18px;">
+                            <?= htmlspecialchars($en_zayif_kat['kategori']) ?>
+                        </span>
+                        <div style="font-size:1.8rem; font-weight:900; color:var(--renk-hata); margin: 12px 0 4px;">
+                            <?= $en_zayif_kat['ort'] ?> / 100
+                        </div>
+                        <div style="margin: 0 auto 16px; max-width:200px;">
+                            <div class="progress-bar-bg">
+                                <div class="progress-bar-dolgu <?= kategoriClass($en_zayif_kat['kategori']) ?>-bg"
+                                     style="width:<?= $en_zayif_kat['ort'] ?>%"></div>
+                            </div>
                         </div>
                     </div>
+                    <div class="alert alert-warning" style="margin-top:0;">
+                        ⚠️ <?= htmlspecialchars($zayif_mesaj) ?>
+                    </div>
+                    <?php else: ?>
+                    <p class="bos-mesaj">Henüz yeterli veri yok.</p>
+                    <?php endif; ?>
                 </div>
-                <div class="alert alert-uyari" style="margin-top:0;">
-                    ⚠️ <?= htmlspecialchars($zayif_mesaj) ?>
-                </div>
-                <?php else: ?>
-                <p class="bos-mesaj">Henüz yeterli veri yok.</p>
-                <?php endif; ?>
             </div>
         </div>
         <?php endif; ?>
 
-        <!-- Kategori Analizi Tablosu -->
         <?php if (!empty($kategori_analiz)): ?>
-        <div class="kart" style="margin-bottom: 28px;">
+        <div class="kart mb-4">
             <div class="kart-baslik">📊 Üye Performans Analizi (Kategori Bazlı)</div>
-            <div class="tablo-kapsam">
-                <table class="uye-tablosu">
+            <div class="table-responsive">
+                <table class="table table-hover uye-tablosu">
                     <thead>
                         <tr>
                             <th>Kategori</th>
@@ -230,11 +218,10 @@ require_once 'includes/header.php';
         </div>
         <?php endif; ?>
 
-        <!-- Liderlik Tablosu -->
         <?php if (!empty($leaderboard)): ?>
-        <div class="kart" style="margin-bottom: 28px;">
+        <div class="kart mb-4">
             <div class="kart-baslik">🏆 Liderlik Tablosu (Top 10)</div>
-            <ul class="leaderboard-liste">
+            <ul class="list-unstyled mb-0">
                 <?php foreach ($leaderboard as $i => $lb): ?>
                 <?php
                     $sira_no   = $i + 1;
@@ -267,11 +254,10 @@ require_once 'includes/header.php';
         </div>
         <?php endif; ?>
 
-        <!-- Üyeler Tablosu (Detay Gör butonu ile) -->
-        <div class="kart" style="margin-bottom: 28px;">
+        <div class="kart mb-4">
             <div class="kart-baslik">👥 Kayıtlı Üyeler</div>
-            <div class="tablo-kapsam">
-                <table class="uye-tablosu">
+            <div class="table-responsive">
+                <table class="table table-hover uye-tablosu">
                     <thead>
                         <tr>
                             <th>ID</th>
@@ -304,7 +290,7 @@ require_once 'includes/header.php';
                             <td style="color: var(--renk-metin-soluk);"><?= $tarih_fmt ?></td>
                             <td>
                                 <?php if ($uye['rol'] === 'user'): ?>
-                                <a href="kullanici_detay.php?id=<?= (int)$uye['id'] ?>" class="btn btn-kucuk" style="font-size:0.78rem; padding:5px 12px;">
+                                <a href="kullanici_detay.php?id=<?= (int)$uye['id'] ?>" class="btn btn-outline-secondary btn-sm">
                                     🔍 Detay Gör
                                 </a>
                                 <?php else: ?>
@@ -318,14 +304,13 @@ require_once 'includes/header.php';
             </div>
         </div>
 
-        <!-- Performans Kayıtları Tablosu -->
         <div class="kart">
             <div class="kart-baslik">📋 Tüm Üye Performans Kayıtları</div>
             <?php if (empty($puan_kayitlari)): ?>
                 <p class="bos-mesaj">Henüz hiç performans değerlendirmesi bulunmuyor.</p>
             <?php else: ?>
-            <div class="tablo-kapsam">
-                <table class="uye-tablosu">
+            <div class="table-responsive">
+                <table class="table table-hover uye-tablosu">
                     <thead>
                         <tr>
                             <th>ID</th>
@@ -363,7 +348,6 @@ require_once 'includes/header.php';
     </div>
 </section>
 
-<!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
 // Bar Grafiği

@@ -1,9 +1,4 @@
 <?php
-// ============================================================
-// rapor.php - Kullanıcı Performans Raporu
-// Güvenlik: Sadece giriş yapmış kullanıcı kendi raporunu görebilir.
-// ============================================================
-
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
 header('Expires: Sat, 01 Jan 2000 00:00:00 GMT');
@@ -11,10 +6,8 @@ header('Expires: Sat, 01 Jan 2000 00:00:00 GMT');
 require_once 'includes/auth.php';
 require_once 'config.php';
 
-// Giriş kontrolü — giriş yapılmamışsa login'e yönlendir
 girisGerekli();
 
-// Admin ise admin paneline yönlendir (admin kendi raporu için kullanıcı paneline giremez)
 if (adminMi()) {
     header('Location: admin_panel.php');
     exit;
@@ -31,7 +24,6 @@ $kayit_tarihi_fmt = !empty($kayit_tarihi)
     : '—';
 $rapor_tarihi = (new DateTime())->format('d.m.Y H:i');
 
-// Genel istatistikler
 $stmt = $pdo->prepare(
     'SELECT COUNT(*) as toplam,
             ROUND(AVG(puan),1) as ortalama,
@@ -51,13 +43,11 @@ $son_tarih    = !empty($istat['son_tarih'])
     ? (new DateTime($istat['son_tarih']))->format('d.m.Y H:i')
     : '—';
 
-// Veri yoksa panele yönlendir
 if ($toplam_kayit === 0) {
     header('Location: kullanici_panel.php');
     exit;
 }
 
-// Kategori bazlı ortalamalar
 $stmt = $pdo->prepare(
     'SELECT kategori, COUNT(*) as adet, ROUND(AVG(puan),1) as ort
      FROM puanlar WHERE user_id = ? GROUP BY kategori ORDER BY ort DESC'
@@ -65,11 +55,9 @@ $stmt = $pdo->prepare(
 $stmt->execute([$kullanici_id]);
 $kategori_istat = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// En güçlü ve en zayıf kategori
 $en_guclu_kat = !empty($kategori_istat) ? $kategori_istat[0] : null;
 $en_zayif_kat = !empty($kategori_istat) ? $kategori_istat[count($kategori_istat) - 1] : null;
 
-// Gelişim seviyesi ve öneri
 $seviye      = '';
 $seviye_renk = '';
 $oneri       = '';
@@ -95,7 +83,6 @@ if ($ort_float >= 85) {
     $oneri       = 'Her büyük yolculuk küçük adımlarla başlar. Önce düzenli antrenman alışkanlığı kazanmaya odaklan. Haftada 3 gün küçük hedeflerle başla.';
 }
 
-// Kategori → CSS renk
 function kategoriRenk($kat) {
     $map = [
         'Antrenman'  => '#3b82f6',
@@ -124,34 +111,6 @@ function kategoriClass($kat) {
     <title>Performans Raporu | FitPanel</title>
     <link rel="stylesheet" href="assets/css/style.css">
     <style>
-        /* ---- Rapor özel stilleri ---- */
-        .rapor-sayfa {
-            padding: 36px 0;
-            min-height: calc(100vh - 130px);
-        }
-        .rapor-baslik {
-            display: flex;
-            align-items: flex-start;
-            justify-content: space-between;
-            flex-wrap: wrap;
-            gap: 16px;
-            margin-bottom: 28px;
-        }
-        .rapor-baslik h1 {
-            font-size: 1.6rem;
-            font-weight: 700;
-            color: var(--renk-metin);
-            margin-bottom: 4px;
-        }
-        .rapor-baslik p {
-            color: var(--renk-metin-soluk);
-            font-size: 0.88rem;
-        }
-        .rapor-butonlar {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
         .seviye-rozet {
             display: inline-block;
             padding: 6px 20px;
@@ -160,7 +119,6 @@ function kategoriClass($kat) {
             font-weight: 700;
             border: 2px solid;
         }
-        /* @media print — yazdırma stili */
         @media print {
             .site-header,
             .site-footer,
@@ -193,116 +151,126 @@ function kategoriClass($kat) {
 
 <?php require_once 'includes/header.php'; ?>
 
-<section class="rapor-sayfa">
+<section class="py-4">
     <div class="container">
 
-        <!-- Başlık ve Butonlar -->
-        <div class="rapor-baslik">
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-4">
             <div>
-                <h1>📄 Performans Raporu</h1>
-                <p>Oluşturulma tarihi: <?= $rapor_tarihi ?></p>
+                <h1 class="fw-bold mb-1" style="font-size:1.6rem;">📄 Performans Raporu</h1>
+                <p class="text-muted mb-0" style="font-size:0.88rem;">Oluşturulma tarihi: <?= $rapor_tarihi ?></p>
             </div>
-            <div class="rapor-butonlar">
-                <button onclick="window.print()" class="btn btn-vurgu" id="yazdir-btn">🖨️ Yazdır / PDF</button>
-                <a href="kullanici_panel.php" class="btn btn-kucuk">← Panele Dön</a>
+            <div class="rapor-butonlar d-flex gap-2 flex-wrap">
+                <button onclick="window.print()" class="btn btn-success" id="yazdir-btn">🖨️ Yazdır / PDF</button>
+                <a href="kullanici_panel.php" class="btn btn-outline-secondary">← Panele Dön</a>
             </div>
         </div>
 
-        <!-- Kullanıcı Bilgileri -->
-        <div class="kart" style="margin-bottom: 20px;">
+        <div class="kart mb-4">
             <div class="kart-baslik">👤 Kullanıcı Bilgileri</div>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0;">
-                <div class="bilgi-satiri">
-                    <span class="bilgi-etiket">Ad Soyad</span>
-                    <span class="bilgi-deger"><?= $ad_soyad ?></span>
+            <div class="row g-0">
+                <div class="col-12 col-md-6">
+                    <div class="bilgi-satiri d-flex justify-content-between border-bottom py-2 px-1">
+                        <span class="bilgi-etiket">Ad Soyad</span>
+                        <span class="bilgi-deger"><?= $ad_soyad ?></span>
+                    </div>
+                    <div class="bilgi-satiri d-flex justify-content-between border-bottom py-2 px-1">
+                        <span class="bilgi-etiket">Kullanıcı Adı</span>
+                        <span class="bilgi-deger">@<?= $kullanici_adi ?></span>
+                    </div>
+                    <div class="bilgi-satiri d-flex justify-content-between py-2 px-1">
+                        <span class="bilgi-etiket">E-posta</span>
+                        <span class="bilgi-deger"><?= $email ?></span>
+                    </div>
                 </div>
-                <div class="bilgi-satiri">
-                    <span class="bilgi-etiket">Kullanıcı Adı</span>
-                    <span class="bilgi-deger">@<?= $kullanici_adi ?></span>
-                </div>
-                <div class="bilgi-satiri">
-                    <span class="bilgi-etiket">E-posta</span>
-                    <span class="bilgi-deger"><?= $email ?></span>
-                </div>
-                <div class="bilgi-satiri">
-                    <span class="bilgi-etiket">Üyelik Başlangıcı</span>
-                    <span class="bilgi-deger"><?= $kayit_tarihi_fmt ?></span>
-                </div>
-                <div class="bilgi-satiri">
-                    <span class="bilgi-etiket">Son Değerlendirme</span>
-                    <span class="bilgi-deger"><?= $son_tarih ?></span>
+                <div class="col-12 col-md-6">
+                    <div class="bilgi-satiri d-flex justify-content-between border-bottom py-2 px-1">
+                        <span class="bilgi-etiket">Üyelik Başlangıcı</span>
+                        <span class="bilgi-deger"><?= $kayit_tarihi_fmt ?></span>
+                    </div>
+                    <div class="bilgi-satiri d-flex justify-content-between py-2 px-1">
+                        <span class="bilgi-etiket">Son Değerlendirme</span>
+                        <span class="bilgi-deger"><?= $son_tarih ?></span>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- Genel İstatistikler -->
-        <div class="istatistik-grid" style="margin-bottom: 20px;">
-            <div class="istat-kart mavi">
-                <div class="istat-ikon">📋</div>
-                <div class="istat-sayi"><?= $toplam_kayit ?></div>
-                <div class="istat-etiket">Toplam Değerlendirme</div>
+        <div class="row g-3 mb-4">
+            <div class="col-6 col-md-3">
+                <div class="istat-kart mavi">
+                    <div class="istat-ikon">📋</div>
+                    <div class="istat-sayi"><?= $toplam_kayit ?></div>
+                    <div class="istat-etiket">Toplam Değerlendirme</div>
+                </div>
             </div>
-            <div class="istat-kart yesil">
-                <div class="istat-ikon">⭐</div>
-                <div class="istat-sayi"><?= $ortalama ?></div>
-                <div class="istat-etiket">Genel Ortalama</div>
+            <div class="col-6 col-md-3">
+                <div class="istat-kart yesil">
+                    <div class="istat-ikon">⭐</div>
+                    <div class="istat-sayi"><?= $ortalama ?></div>
+                    <div class="istat-etiket">Genel Ortalama</div>
+                </div>
             </div>
-            <div class="istat-kart turuncu">
-                <div class="istat-ikon">🏆</div>
-                <div class="istat-sayi"><?= $en_yuksek ?></div>
-                <div class="istat-etiket">En Yüksek Puan</div>
+            <div class="col-6 col-md-3">
+                <div class="istat-kart turuncu">
+                    <div class="istat-ikon">🏆</div>
+                    <div class="istat-sayi"><?= $en_yuksek ?></div>
+                    <div class="istat-etiket">En Yüksek Puan</div>
+                </div>
             </div>
-            <div class="istat-kart kirmizi">
-                <div class="istat-ikon">📉</div>
-                <div class="istat-sayi"><?= $en_dusuk ?></div>
-                <div class="istat-etiket">En Düşük Puan</div>
+            <div class="col-6 col-md-3">
+                <div class="istat-kart kirmizi">
+                    <div class="istat-ikon">📉</div>
+                    <div class="istat-sayi"><?= $en_dusuk ?></div>
+                    <div class="istat-etiket">En Düşük Puan</div>
+                </div>
             </div>
         </div>
 
-        <!-- Güçlü / Zayıf Kategori + Gelişim Seviyesi -->
-        <div class="panel-grid" style="margin-bottom: 20px;">
-            <div class="kart">
-                <div class="kart-baslik">🏅 Kategori Özeti</div>
-                <?php if ($en_guclu_kat): ?>
-                <div class="bilgi-satiri">
-                    <span class="bilgi-etiket">En Güçlü Kategori</span>
-                    <span class="bilgi-deger">
-                        <span class="rozet rozet-kategori rozet-<?= kategoriClass($en_guclu_kat['kategori']) ?>"><?= htmlspecialchars($en_guclu_kat['kategori']) ?></span>
-                        <span style="color:var(--renk-basari); font-size:0.85rem; margin-left:6px;"><?= $en_guclu_kat['ort'] ?> / 100</span>
-                    </span>
-                </div>
-                <?php endif; ?>
-                <?php if ($en_zayif_kat && $en_zayif_kat !== $en_guclu_kat): ?>
-                <div class="bilgi-satiri">
-                    <span class="bilgi-etiket">En Zayıf Kategori</span>
-                    <span class="bilgi-deger">
-                        <span class="rozet rozet-kategori rozet-<?= kategoriClass($en_zayif_kat['kategori']) ?>"><?= htmlspecialchars($en_zayif_kat['kategori']) ?></span>
-                        <span style="color:var(--renk-hata); font-size:0.85rem; margin-left:6px;"><?= $en_zayif_kat['ort'] ?> / 100</span>
-                    </span>
-                </div>
-                <?php endif; ?>
-                <div class="bilgi-satiri">
-                    <span class="bilgi-etiket">Gelişim Seviyesi</span>
-                    <span class="bilgi-deger">
-                        <span class="seviye-rozet" style="color:<?= $seviye_renk ?>; border-color:<?= $seviye_renk ?>; background:<?= $seviye_renk ?>1a;"><?= $seviye ?></span>
-                    </span>
+        <div class="row g-3 mb-4">
+            <div class="col-md-6">
+                <div class="kart h-100">
+                    <div class="kart-baslik">🏅 Kategori Özeti</div>
+                    <?php if ($en_guclu_kat): ?>
+                    <div class="bilgi-satiri d-flex justify-content-between align-items-center border-bottom py-2 px-1">
+                        <span class="bilgi-etiket">En Güçlü Kategori</span>
+                        <span class="bilgi-deger">
+                            <span class="rozet rozet-kategori rozet-<?= kategoriClass($en_guclu_kat['kategori']) ?>"><?= htmlspecialchars($en_guclu_kat['kategori']) ?></span>
+                            <span style="color:var(--renk-basari); font-size:0.85rem; margin-left:6px;"><?= $en_guclu_kat['ort'] ?> / 100</span>
+                        </span>
+                    </div>
+                    <?php endif; ?>
+                    <?php if ($en_zayif_kat && $en_zayif_kat !== $en_guclu_kat): ?>
+                    <div class="bilgi-satiri d-flex justify-content-between align-items-center border-bottom py-2 px-1">
+                        <span class="bilgi-etiket">En Zayıf Kategori</span>
+                        <span class="bilgi-deger">
+                            <span class="rozet rozet-kategori rozet-<?= kategoriClass($en_zayif_kat['kategori']) ?>"><?= htmlspecialchars($en_zayif_kat['kategori']) ?></span>
+                            <span style="color:var(--renk-hata); font-size:0.85rem; margin-left:6px;"><?= $en_zayif_kat['ort'] ?> / 100</span>
+                        </span>
+                    </div>
+                    <?php endif; ?>
+                    <div class="bilgi-satiri d-flex justify-content-between align-items-center py-2 px-1">
+                        <span class="bilgi-etiket">Gelişim Seviyesi</span>
+                        <span class="bilgi-deger">
+                            <span class="seviye-rozet" style="color:<?= $seviye_renk ?>; border-color:<?= $seviye_renk ?>; background:<?= $seviye_renk ?>1a;"><?= $seviye ?></span>
+                        </span>
+                    </div>
                 </div>
             </div>
-
-            <div class="kart">
-                <div class="kart-baslik">💡 Gelişim Önerisi</div>
-                <p style="font-size:0.92rem; color:var(--renk-metin); line-height:1.7; margin-bottom: 0;">
-                    <?= htmlspecialchars($oneri) ?>
-                </p>
+            <div class="col-md-6">
+                <div class="kart h-100">
+                    <div class="kart-baslik">💡 Gelişim Önerisi</div>
+                    <p style="font-size:0.92rem; color:var(--renk-metin); line-height:1.7; margin-bottom:0;">
+                        <?= htmlspecialchars($oneri) ?>
+                    </p>
+                </div>
             </div>
         </div>
 
-        <!-- Kategori Tablosu + Mini Progress Bar -->
         <div class="kart">
             <div class="kart-baslik">📊 Kategori Detay Tablosu</div>
             <?php if (!empty($kategori_istat)): ?>
-            <div class="tablo-kapsam">
-                <table class="uye-tablosu">
+            <div class="table-responsive tablo-kapsam">
+                <table class="table table-hover uye-tablosu mb-0">
                     <thead>
                         <tr>
                             <th>Kategori</th>

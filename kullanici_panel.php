@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
 header('Expires: Sat, 01 Jan 2000 00:00:00 GMT');
@@ -10,7 +10,6 @@ kullaniciGerekli();
 
 $pdo = baglan();
 
-// Kategori → CSS class
 function kategoriClass($kat) {
     $map = [
         'Antrenman'  => 'antrenman',
@@ -21,11 +20,6 @@ function kategoriClass($kat) {
     return $map[$kat] ?? 'diger';
 }
 
-// ============================================================
-// SORU SETLERİ — Her kategori için 4 soru, 4 seçenek.
-// Seçeneklerin 'puan' değerleri sunucu tarafında tutulur;
-// kullanıcı yalnızca index (0-3) gönderir → manipülasyon engeli.
-// ============================================================
 $sorular = [
     'Antrenman' => [
         ['soru' => 'Bu hafta kaç gün antrenman yaptın?', 'secenekler' => [
@@ -38,7 +32,7 @@ $sorular = [
             ['metin' => '15 dakikadan az', 'puan' => 10],
             ['metin' => '15–30 dakika',    'puan' => 40],
             ['metin' => '30–60 dakika',    'puan' => 75],
-            ['metin' => '60 dk\'dan fazla','puan' => 100],
+            ['metin' => "60 dk'dan fazla", 'puan' => 100],
         ]],
         ['soru' => 'Antrenman yoğunluğunu nasıl değerlendirirsin?', 'secenekler' => [
             ['metin' => 'Çok hafif', 'puan' => 10],
@@ -113,29 +107,28 @@ $sorular = [
             ['metin' => 'Belirgin şekilde iyileşti', 'puan' => 100],
         ]],
         ['soru' => 'Bu hafta kişisel rekor kırdın mı?', 'secenekler' => [
-            ['metin' => 'Hayır',         'puan' => 20],
-            ['metin' => 'Bir kez kırdım','puan' => 55],
+            ['metin' => 'Hayır',            'puan' => 20],
+            ['metin' => 'Bir kez kırdım',   'puan' => 55],
             ['metin' => 'Birkaç kez kırdım','puan' => 80],
-            ['metin' => 'Sık sık kırdım',  'puan' => 100],
+            ['metin' => 'Sık sık kırdım',   'puan' => 100],
         ]],
         ['soru' => 'Egzersizlerde ağırlık / mesafe / süre artırdın mı?', 'secenekler' => [
-            ['metin' => 'Hayır, düşürdüm',             'puan' => 10],
-            ['metin' => 'Aynı kaldım',                 'puan' => 35],
-            ['metin' => 'Biraz artırdım',              'puan' => 70],
-            ['metin' => 'Önemli miktarda artırdım',   'puan' => 100],
+            ['metin' => 'Hayır, düşürdüm',           'puan' => 10],
+            ['metin' => 'Aynı kaldım',               'puan' => 35],
+            ['metin' => 'Biraz artırdım',            'puan' => 70],
+            ['metin' => 'Önemli miktarda artırdım',  'puan' => 100],
         ]],
         ['soru' => 'Antrenman sonrası toparlanma süren nasıl?', 'secenekler' => [
-            ['metin' => 'Çok uzun sürüyor, bitkinim',  'puan' => 15],
-            ['metin' => 'Normalden uzun sürüyor',       'puan' => 40],
-            ['metin' => 'Normal',                       'puan' => 70],
-            ['metin' => 'Çok hızlı toparlanıyorum',   'puan' => 100],
+            ['metin' => 'Çok uzun sürüyor, bitkinim', 'puan' => 15],
+            ['metin' => 'Normalden uzun sürüyor',      'puan' => 40],
+            ['metin' => 'Normal',                      'puan' => 70],
+            ['metin' => 'Çok hızlı toparlanıyorum',  'puan' => 100],
         ]],
     ],
 ];
 
 $kategoriler = array_keys($sorular);
 
-// Session bilgileri
 $kullanici_id  = $_SESSION['kullanici_id'];
 $ad_soyad      = htmlspecialchars($_SESSION['ad_soyad']);
 $kullanici_adi = htmlspecialchars($_SESSION['kullanici_adi']);
@@ -146,7 +139,6 @@ if (!empty($kayit_tarihi)) {
     $kayit_tarihi_fmt = (new DateTime($kayit_tarihi))->format('d.m.Y');
 }
 
-// ---- PUAN EKLEME (POST) ----
 $form_hata   = '';
 $form_basari = '';
 
@@ -169,7 +161,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['puan_ekle'])) {
                 $gecerli = false;
                 break;
             }
-            // Puanı sunucu tarafındaki diziden al — kullanıcı puan değerini gönderemez
             $toplam += $soru_listesi[$i]['secenekler'][$cevap]['puan'];
         }
 
@@ -185,13 +176,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['puan_ekle'])) {
     }
 }
 
-// ---- VERİ ÇEKİMİ ----
-// Tüm puanlar
 $stmt = $pdo->prepare('SELECT * FROM puanlar WHERE user_id = ? ORDER BY eklenme_tarihi DESC');
 $stmt->execute([$kullanici_id]);
 $puanlar = $stmt->fetchAll();
 
-// Genel istatistikler (en düşük puan da dahil)
 $stmt = $pdo->prepare(
     'SELECT COUNT(*) as toplam,
             ROUND(AVG(puan),1) as ortalama,
@@ -208,7 +196,6 @@ $en_yuksek    = $istat['en_yuksek'] ?? '—';
 $en_dusuk     = $istat['en_dusuk'] ?? '—';
 $son_puan     = !empty($puanlar) ? $puanlar[0]['puan'] : '—';
 
-// Kategori bazlı ortalamalar
 $stmt = $pdo->prepare(
     'SELECT kategori, COUNT(*) as adet, ROUND(AVG(puan),1) as ort
      FROM puanlar WHERE user_id = ? GROUP BY kategori'
@@ -220,7 +207,6 @@ foreach ($kategori_istat as $ki) {
     $kategori_map[$ki['kategori']] = $ki;
 }
 
-// En zayıf ve en güçlü kategori hesapla
 $en_zayif_kat   = null;
 $en_guclu_kat   = null;
 $en_zayif_ort   = 101;
@@ -236,7 +222,6 @@ foreach ($kategori_map as $kat => $ki) {
     }
 }
 
-// Gelişim seviyesi rozeti ve öneri hesapla
 $seviye        = '';
 $seviye_renk   = '';
 $oneri_mesaji  = '';
@@ -260,7 +245,6 @@ if ($toplam_kayit > 0 && is_numeric($ortalama)) {
     }
 }
 
-// Radar grafik için veri hazırla (Chart.js)
 $radar_etiketler = [];
 $radar_veriler   = [];
 foreach ($kategoriler as $kat) {
@@ -268,7 +252,6 @@ foreach ($kategoriler as $kat) {
     $radar_veriler[]   = isset($kategori_map[$kat]) ? (float)$kategori_map[$kat]['ort'] : 0;
 }
 
-// Motivasyon mesajı
 $motivasyon = '';
 $motivasyon_renk = '';
 if ($toplam_kayit > 0 && is_numeric($ortalama)) {
@@ -292,268 +275,263 @@ $cikis_yolu           = 'logout.php';
 require_once 'includes/header.php';
 ?>
 
-<section class="panel-sayfa">
-    <div class="container">
+<section class="py-4">
+  <div class="container">
 
-        <!-- Başlık -->
-        <div class="panel-baslik-bolumu">
-            <h1>👋 Hoş geldin, <?= $ad_soyad ?>!</h1>
-            <p>Haftalık performans değerlendirmeni yap — puan otomatik hesaplanır ve üyelik geçmişine eklenir.</p>
+    <div class="mb-4">
+      <h1>👋 Hoş geldin, <?= $ad_soyad ?>!</h1>
+      <p class="text-muted">Haftalık performans değerlendirmeni yap — puan otomatik hesaplanır ve üyelik geçmişine eklenir.</p>
+    </div>
+
+    <?php if (!empty($motivasyon)): ?>
+    <?php
+    $alert_cls = 'alert-info';
+    if ($motivasyon_renk === 'basari') $alert_cls = 'alert-success';
+    elseif ($motivasyon_renk === 'uyari') $alert_cls = 'alert-warning';
+    ?>
+    <div class="alert <?= $alert_cls ?> mb-4"><?= $motivasyon ?></div>
+    <?php endif; ?>
+
+    <!-- İstatistik Kartları -->
+    <div class="row g-3 mb-4">
+      <div class="col-6 col-md-4 col-lg">
+        <div class="istat-kart mavi">
+          <div class="istat-ikon">📋</div>
+          <div class="istat-sayi"><?= $toplam_kayit ?></div>
+          <div class="istat-etiket">Toplam Kayıt</div>
         </div>
+      </div>
+      <div class="col-6 col-md-4 col-lg">
+        <div class="istat-kart yesil">
+          <div class="istat-ikon">⭐</div>
+          <div class="istat-sayi"><?= $ortalama ?></div>
+          <div class="istat-etiket">Genel Ortalama</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-4 col-lg">
+        <div class="istat-kart turuncu">
+          <div class="istat-ikon">🏆</div>
+          <div class="istat-sayi"><?= $en_yuksek ?></div>
+          <div class="istat-etiket">En Yüksek Puan</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-4 col-lg">
+        <div class="istat-kart kirmizi">
+          <div class="istat-ikon">📉</div>
+          <div class="istat-sayi"><?= $en_dusuk ?></div>
+          <div class="istat-etiket">En Düşük Puan</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-4 col-lg">
+        <div class="istat-kart mor">
+          <div class="istat-ikon">🎯</div>
+          <div class="istat-sayi"><?= $son_puan ?></div>
+          <div class="istat-etiket">Son Puan</div>
+        </div>
+      </div>
+    </div>
 
-        <!-- Motivasyon Mesajı -->
-        <?php if (!empty($motivasyon)): ?>
-        <div class="alert alert-<?= $motivasyon_renk ?>" style="margin-bottom: 20px;">
-            <?= $motivasyon ?>
+    <!-- Gelişim Seviyesi + Öneri -->
+    <?php if (!empty($seviye)): ?>
+    <div class="kart mb-4" style="border-left: 4px solid var(--renk-vurgu);">
+      <div class="d-flex align-items-center gap-3 flex-wrap">
+        <div>
+          <div class="small text-muted text-uppercase mb-1" style="letter-spacing:1px;">Gelişim Seviyesi</div>
+          <span class="istat-kart-rozet rozet-seviye rozet-seviye-<?= $seviye_renk ?>"><?= $seviye ?></span>
+        </div>
+        <div class="flex-fill border-start ps-3">
+          <div class="small text-muted text-uppercase mb-1" style="letter-spacing:1px;">Kişisel Gelişim Önerisi</div>
+          <p class="mb-0 small"><?= htmlspecialchars($oneri_mesaji) ?></p>
+        </div>
+        <?php if ($en_zayif_kat): ?>
+        <div class="text-center">
+          <div class="small text-muted text-uppercase mb-1" style="letter-spacing:1px;">En Zayıf Alan</div>
+          <span class="rozet rozet-kategori rozet-<?= kategoriClass($en_zayif_kat) ?>"><?= htmlspecialchars($en_zayif_kat) ?></span>
+          <div class="small mt-1" style="color:var(--renk-hata);"><?= $en_zayif_ort ?> / 100</div>
         </div>
         <?php endif; ?>
+      </div>
+    </div>
+    <?php endif; ?>
 
-        <!-- İstatistik Kartları (Renkli + İkonlu) -->
-        <div class="istatistik-grid" style="margin-bottom: 24px;">
-            <div class="istat-kart mavi">
-                <div class="istat-ikon">📋</div>
-                <div class="istat-sayi"><?= $toplam_kayit ?></div>
-                <div class="istat-etiket">Toplam Kayıt</div>
-            </div>
-            <div class="istat-kart yesil">
-                <div class="istat-ikon">⭐</div>
-                <div class="istat-sayi"><?= $ortalama ?></div>
-                <div class="istat-etiket">Genel Ortalama</div>
-            </div>
-            <div class="istat-kart turuncu">
-                <div class="istat-ikon">🏆</div>
-                <div class="istat-sayi"><?= $en_yuksek ?></div>
-                <div class="istat-etiket">En Yüksek Puan</div>
-            </div>
-            <div class="istat-kart kirmizi">
-                <div class="istat-ikon">📉</div>
-                <div class="istat-sayi"><?= $en_dusuk ?></div>
-                <div class="istat-etiket">En Düşük Puan</div>
-            </div>
-            <div class="istat-kart mor">
-                <div class="istat-ikon">🎯</div>
-                <div class="istat-sayi"><?= $son_puan ?></div>
-                <div class="istat-etiket">Son Puan</div>
-            </div>
+    <!-- Profil + Radar -->
+    <div class="row g-4 mb-4 align-items-start">
+
+      <div class="col-md-5">
+        <div class="kart h-100">
+          <div class="kart-baslik">🏅 Üyelik Bilgilerim</div>
+          <div class="bilgi-satiri">
+            <span class="bilgi-etiket">Ad Soyad</span>
+            <span class="bilgi-deger"><?= $ad_soyad ?></span>
+          </div>
+          <div class="bilgi-satiri">
+            <span class="bilgi-etiket">Kullanıcı Adı</span>
+            <span class="bilgi-deger">@<?= $kullanici_adi ?></span>
+          </div>
+          <div class="bilgi-satiri">
+            <span class="bilgi-etiket">E-posta</span>
+            <span class="bilgi-deger"><?= $email ?></span>
+          </div>
+          <div class="bilgi-satiri">
+            <span class="bilgi-etiket">Üyelik Türü</span>
+            <span class="bilgi-deger"><span class="rozet rozet-user">Standart Üye</span></span>
+          </div>
+          <div class="bilgi-satiri">
+            <span class="bilgi-etiket">Üyelik Başlangıcı</span>
+            <span class="bilgi-deger"><?= $kayit_tarihi_fmt ?: '—' ?></span>
+          </div>
+
+          <?php if (!empty($kategori_map)): ?>
+          <div class="mt-3 pt-3 border-top">
+            <div class="small fw-semibold text-muted mb-3">📊 Kategori Ortalamaları</div>
+            <?php foreach ($kategoriler as $kat): ?>
+              <?php if (isset($kategori_map[$kat])): ?>
+              <div class="mb-2">
+                <div class="d-flex justify-content-between small mb-1">
+                  <span class="rozet rozet-kategori rozet-<?= kategoriClass($kat) ?>"><?= $kat ?></span>
+                  <span class="text-muted"><?= $kategori_map[$kat]['ort'] ?> ort · <?= $kategori_map[$kat]['adet'] ?> kayıt</span>
+                </div>
+                <div class="progress-bar-bg">
+                  <div class="progress-bar-dolgu <?= kategoriClass($kat) ?>-bg"
+                       style="width: <?= $kategori_map[$kat]['ort'] ?>%"></div>
+                </div>
+              </div>
+              <?php endif; ?>
+            <?php endforeach; ?>
+          </div>
+          <?php endif; ?>
+
+          <?php if ($toplam_kayit > 0): ?>
+          <div class="mt-3 pt-3 border-top">
+            <a href="rapor.php" class="btn btn-success w-100" id="rapor-btn">📄 Performans Raporu Oluştur</a>
+          </div>
+          <?php endif; ?>
         </div>
+      </div>
 
-        <!-- Gelişim Seviyesi Rozeti + Öneri -->
-        <?php if (!empty($seviye)): ?>
-        <div class="kart" style="margin-bottom: 24px; border-left: 4px solid var(--renk-vurgu);">
-            <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
-                <div>
-                    <div style="font-size:0.8rem; color:var(--renk-metin-soluk); margin-bottom:6px; text-transform:uppercase; letter-spacing:1px;">Gelişim Seviyesi</div>
-                    <span class="istat-kart-rozet rozet-seviye rozet-seviye-<?= $seviye_renk ?>"><?= $seviye ?></span>
-                </div>
-                <div style="flex:1; border-left:1px solid var(--renk-sinir); padding-left:16px;">
-                    <div style="font-size:0.8rem; color:var(--renk-metin-soluk); margin-bottom:6px; text-transform:uppercase; letter-spacing:1px;">Kişisel Gelişim Önerisi</div>
-                    <p style="font-size:0.92rem; color:var(--renk-metin); margin:0;"><?= htmlspecialchars($oneri_mesaji) ?></p>
-                </div>
-                <?php if ($en_zayif_kat): ?>
-                <div style="text-align:center;">
-                    <div style="font-size:0.8rem; color:var(--renk-metin-soluk); margin-bottom:6px; text-transform:uppercase; letter-spacing:1px;">En Zayıf Alan</div>
-                    <span class="rozet rozet-kategori rozet-<?= kategoriClass($en_zayif_kat) ?>"><?= htmlspecialchars($en_zayif_kat) ?></span>
-                    <div style="font-size:0.8rem; color:var(--renk-hata); margin-top:4px;"><?= $en_zayif_ort ?> / 100</div>
-                </div>
-                <?php endif; ?>
-            </div>
+      <div class="col-md-7">
+        <div class="kart h-100">
+          <div class="kart-baslik">🎯 Performans Radar Grafiği</div>
+          <?php if (!empty($kategori_map)): ?>
+          <p class="small text-muted mb-3">Kategori bazlı ortalama puanlarının görsel analizi.</p>
+          <div class="chart-kapsam">
+            <canvas id="radarGrafik"></canvas>
+          </div>
+          <?php else: ?>
+          <p class="bos-mesaj">📊 Grafik için en az bir değerlendirme yapmalısın.</p>
+          <?php endif; ?>
         </div>
-        <?php endif; ?>
-
-        <!-- Üst Grid: Profil + Radar Grafik -->
-        <div class="panel-grid" style="margin-bottom: 24px; align-items: start;">
-
-            <!-- Profil Bilgisi -->
-            <div class="kart">
-                <div class="kart-baslik">🏅 Üyelik Bilgilerim</div>
-                <div class="bilgi-satiri">
-                    <span class="bilgi-etiket">Ad Soyad</span>
-                    <span class="bilgi-deger"><?= $ad_soyad ?></span>
-                </div>
-                <div class="bilgi-satiri">
-                    <span class="bilgi-etiket">Kullanıcı Adı</span>
-                    <span class="bilgi-deger">@<?= $kullanici_adi ?></span>
-                </div>
-                <div class="bilgi-satiri">
-                    <span class="bilgi-etiket">E-posta</span>
-                    <span class="bilgi-deger"><?= $email ?></span>
-                </div>
-                <div class="bilgi-satiri">
-                    <span class="bilgi-etiket">Üyelik Türü</span>
-                    <span class="bilgi-deger"><span class="rozet rozet-user">Standart Üye</span></span>
-                </div>
-                <div class="bilgi-satiri">
-                    <span class="bilgi-etiket">Üyelik Başlangıcı</span>
-                    <span class="bilgi-deger"><?= $kayit_tarihi_fmt ?: '—' ?></span>
-                </div>
-
-                <!-- Kategori Dağılımı -->
-                <?php if (!empty($kategori_map)): ?>
-                <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--renk-sinir);">
-                    <div style="font-size: 0.85rem; color: var(--renk-metin-soluk); margin-bottom: 12px; font-weight: 600;">📊 Kategori Ortalamaları</div>
-                    <?php foreach ($kategoriler as $kat): ?>
-                        <?php if (isset($kategori_map[$kat])): ?>
-                        <div style="margin-bottom: 10px;">
-                            <div style="display:flex; justify-content:space-between; font-size:0.82rem; margin-bottom:4px;">
-                                <span class="rozet rozet-kategori rozet-<?= kategoriClass($kat) ?>"><?= $kat ?></span>
-                                <span style="color:var(--renk-metin-soluk);"><?= $kategori_map[$kat]['ort'] ?> ort · <?= $kategori_map[$kat]['adet'] ?> kayıt</span>
-                            </div>
-                            <div class="progress-bar-bg">
-                                <div class="progress-bar-dolgu <?= kategoriClass($kat) ?>-bg"
-                                     style="width: <?= $kategori_map[$kat]['ort'] ?>%"></div>
-                            </div>
-                        </div>
-                        <?php endif; ?>
-                    <?php endforeach; ?>
-                </div>
-                <?php endif; ?>
-
-                <!-- Performans Raporu Butonu -->
-                <?php if ($toplam_kayit > 0): ?>
-                <div style="margin-top:20px; padding-top:16px; border-top:1px solid var(--renk-sinir);">
-                    <a href="rapor.php" class="btn btn-vurgu btn-tam" id="rapor-btn">📄 Performans Raporu Oluştur</a>
-                </div>
-                <?php endif; ?>
-            </div>
-
-            <!-- Radar Grafiği -->
-            <?php if (!empty($kategori_map)): ?>
-            <div class="kart">
-                <div class="kart-baslik">🎯 Performans Radar Grafiği</div>
-                <p style="font-size:0.82rem; color:var(--renk-metin-soluk); margin-bottom:12px;">
-                    Kategori bazlı ortalama puanlarının görsel analizi.
-                </p>
-                <div class="chart-kapsam">
-                    <canvas id="radarGrafik"></canvas>
-                </div>
-            </div>
-            <?php else: ?>
-            <div class="kart">
-                <div class="kart-baslik">🎯 Performans Radar Grafiği</div>
-                <p class="bos-mesaj">📊 Grafik için en az bir değerlendirme yapmalısın.</p>
-            </div>
-            <?php endif; ?>
-        </div>
-
-        <!-- Değerlendirme Formu -->
-        <div class="kart" style="margin-bottom: 24px;">
-            <div class="kart-baslik">📝 Haftalık Performans Değerlendirmesi</div>
-
-            <?php if (!empty($form_hata)): ?>
-                <div class="alert alert-hata"><?= $form_hata ?></div>
-            <?php endif; ?>
-            <?php if (!empty($form_basari)): ?>
-                <div class="alert alert-basari"><?= $form_basari ?></div>
-            <?php endif; ?>
-
-            <p style="font-size:0.82rem; color:var(--renk-metin-soluk); margin-bottom:16px;">
-                Bir kategori seç ve soruları yanıtla — üyelik puanın otomatik hesaplanır ve kaydedilir.
-            </p>
-
-            <form method="POST" action="kullanici_panel.php" id="degerlendirme-form" novalidate>
-                <input type="hidden" name="puan_ekle" value="1">
-
-                <div class="form-grup">
-                    <label for="kategori">Kategori Seç</label>
-                    <select id="kategori" name="kategori" onchange="kategoriDegisti(this.value)">
-                        <option value="">-- Kategori seçin --</option>
-                        <?php foreach ($kategoriler as $k): ?>
-                            <option value="<?= $k ?>"><?= $k ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-
-                <!-- Soru Grupları — JS ile gösterilen/gizlenen -->
-                <?php foreach ($sorular as $kat => $soru_listesi): ?>
-                <div class="soru-grubu" id="sorular-<?= $kat ?>" style="display:none;">
-                    <?php foreach ($soru_listesi as $si => $soru): ?>
-                    <div class="form-grup soru-blok">
-                        <label><?= ($si + 1) ?>. <?= htmlspecialchars($soru['soru']) ?></label>
-                        <div class="secenekler">
-                            <?php foreach ($soru['secenekler'] as $ci => $secenek): ?>
-                            <label class="secenek-satiri">
-                                <input type="radio"
-                                       name="soru_<?= $si ?>"
-                                       value="<?= $ci ?>">
-                                <span><?= htmlspecialchars($secenek['metin']) ?></span>
-                            </label>
-                            <?php endforeach; ?>
-                        </div>
-                    </div>
-                    <?php endforeach; ?>
-                </div>
-                <?php endforeach; ?>
-
-                <div class="form-grup">
-                    <label for="aciklama">Not <small>(isteğe bağlı)</small></label>
-                    <input type="text" id="aciklama" name="aciklama"
-                           placeholder="Kısa bir not ekleyebilirsiniz">
-                </div>
-
-                <button type="submit" class="btn btn-vurgu btn-tam" id="kaydet-btn" style="display:none;">
-                    Değerlendirmeyi Kaydet
-                </button>
-            </form>
-        </div>
-
-        <!-- Puan Kayıtları -->
-        <div class="kart">
-            <div class="kart-baslik">📋 Üyelik Performans Geçmişim</div>
-            <?php if (empty($puanlar)): ?>
-                <p class="bos-mesaj">🏋️ Henüz performans değerlendirmesi yapılmadı. Yukarıdaki formu kullanarak ilk üyelik puanını oluştur!</p>
-            <?php else: ?>
-            <div class="tablo-kapsam">
-                <table class="uye-tablosu">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Kategori</th>
-                            <th>Puan</th>
-                            <th>Not</th>
-                            <th>Tarih</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($puanlar as $kayit): ?>
-                        <tr>
-                            <td class="id-sutun">#<?= $kayit['id'] ?></td>
-                            <td>
-                                <span class="rozet rozet-kategori rozet-<?= kategoriClass($kayit['kategori']) ?>">
-                                    <?= htmlspecialchars($kayit['kategori']) ?>
-                                </span>
-                            </td>
-                            <td>
-                                <span class="puan-goster <?= (int)$kayit['puan'] >= 75 ? 'puan-iyi' : ((int)$kayit['puan'] >= 50 ? 'puan-orta' : 'puan-dusuk') ?>">
-                                    <?= $kayit['puan'] ?>
-                                </span>
-                                <span style="color:var(--renk-metin-soluk); font-size:0.82rem;"> / 100</span>
-                            </td>
-                            <td style="color:var(--renk-metin-soluk); font-size:0.85rem;">
-                                <?= htmlspecialchars($kayit['aciklama'] ?? '—') ?>
-                            </td>
-                            <td style="color:var(--renk-metin-soluk); font-size:0.85rem;">
-                                <?= (new DateTime($kayit['eklenme_tarihi']))->format('d.m.Y H:i') ?>
-                            </td>
-                        </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
-            <?php endif; ?>
-        </div>
+      </div>
 
     </div>
+
+    <!-- Değerlendirme Formu -->
+    <div class="kart mb-4">
+      <div class="kart-baslik">📝 Haftalık Performans Değerlendirmesi</div>
+
+      <?php if (!empty($form_hata)): ?>
+      <div class="alert alert-danger"><?= $form_hata ?></div>
+      <?php endif; ?>
+      <?php if (!empty($form_basari)): ?>
+      <div class="alert alert-success"><?= $form_basari ?></div>
+      <?php endif; ?>
+
+      <p class="small text-muted mb-3">Bir kategori seç ve soruları yanıtla — üyelik puanın otomatik hesaplanır ve kaydedilir.</p>
+
+      <form method="POST" action="kullanici_panel.php" id="degerlendirme-form" novalidate>
+        <input type="hidden" name="puan_ekle" value="1">
+
+        <div class="mb-3">
+          <label for="kategori" class="form-label">Kategori Seç</label>
+          <select id="kategori" name="kategori" class="form-select" onchange="kategoriDegisti(this.value)">
+            <option value="">-- Kategori seçin --</option>
+            <?php foreach ($kategoriler as $k): ?>
+            <option value="<?= $k ?>"><?= $k ?></option>
+            <?php endforeach; ?>
+          </select>
+        </div>
+
+        <?php foreach ($sorular as $kat => $soru_listesi): ?>
+        <div class="soru-grubu" id="sorular-<?= $kat ?>" style="display:none;">
+          <?php foreach ($soru_listesi as $si => $soru): ?>
+          <div class="mb-3 soru-blok">
+            <label class="form-label"><?= ($si + 1) ?>. <?= htmlspecialchars($soru['soru']) ?></label>
+            <div class="secenekler">
+              <?php foreach ($soru['secenekler'] as $ci => $secenek): ?>
+              <label class="secenek-satiri">
+                <input type="radio" name="soru_<?= $si ?>" value="<?= $ci ?>">
+                <span><?= htmlspecialchars($secenek['metin']) ?></span>
+              </label>
+              <?php endforeach; ?>
+            </div>
+          </div>
+          <?php endforeach; ?>
+        </div>
+        <?php endforeach; ?>
+
+        <div class="mb-3">
+          <label for="aciklama" class="form-label">Not <small>(isteğe bağlı)</small></label>
+          <input type="text" id="aciklama" name="aciklama" class="form-control"
+                 placeholder="Kısa bir not ekleyebilirsiniz">
+        </div>
+
+        <button type="submit" class="btn btn-success w-100" id="kaydet-btn" style="display:none;">
+          Değerlendirmeyi Kaydet
+        </button>
+      </form>
+    </div>
+
+    <!-- Puan Geçmişi -->
+    <div class="kart">
+      <div class="kart-baslik">📋 Üyelik Performans Geçmişim</div>
+      <?php if (empty($puanlar)): ?>
+      <p class="bos-mesaj">🏋️ Henüz performans değerlendirmesi yapılmadı. Yukarıdaki formu kullanarak ilk üyelik puanını oluştur!</p>
+      <?php else: ?>
+      <div class="table-responsive">
+        <table class="table table-hover uye-tablosu">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Kategori</th>
+              <th>Puan</th>
+              <th>Not</th>
+              <th>Tarih</th>
+            </tr>
+          </thead>
+          <tbody>
+            <?php foreach ($puanlar as $kayit): ?>
+            <tr>
+              <td class="id-sutun">#<?= $kayit['id'] ?></td>
+              <td>
+                <span class="rozet rozet-kategori rozet-<?= kategoriClass($kayit['kategori']) ?>">
+                  <?= htmlspecialchars($kayit['kategori']) ?>
+                </span>
+              </td>
+              <td>
+                <span class="puan-goster <?= (int)$kayit['puan'] >= 75 ? 'puan-iyi' : ((int)$kayit['puan'] >= 50 ? 'puan-orta' : 'puan-dusuk') ?>">
+                  <?= $kayit['puan'] ?>
+                </span>
+                <span class="text-muted small"> / 100</span>
+              </td>
+              <td class="text-muted small"><?= htmlspecialchars($kayit['aciklama'] ?? '—') ?></td>
+              <td class="text-muted small"><?= (new DateTime($kayit['eklenme_tarihi']))->format('d.m.Y H:i') ?></td>
+            </tr>
+            <?php endforeach; ?>
+          </tbody>
+        </table>
+      </div>
+      <?php endif; ?>
+    </div>
+
+  </div>
 </section>
 
-<!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
-// Kategori seçilince ilgili soru grubunu göster, diğerlerini gizle
 function kategoriDegisti(kat) {
     document.querySelectorAll('.soru-grubu').forEach(function(el) {
         el.style.display = 'none';
     });
-    // Seçili kategorinin radioslarını temizle
     document.querySelectorAll('.soru-grubu input[type="radio"]').forEach(function(r) {
         r.checked = false;
     });
@@ -567,7 +545,6 @@ function kategoriDegisti(kat) {
     }
 }
 
-// Radar Grafiği
 <?php if (!empty($kategori_map)): ?>
 (function() {
     var ctx = document.getElementById('radarGrafik');
